@@ -10,7 +10,7 @@ import (
 )
 
 
-func handle_client(conn net.Conn) {
+func handle_client(conn net.Conn, cc core.ClientConstructor) {
     reader := bufio.NewReader(conn)
     dec := json.NewDecoder(reader)
     enc := json.NewEncoder(conn)
@@ -24,7 +24,7 @@ func handle_client(conn net.Conn) {
         // log.Printf("Hitting %s at %f reqs/s by %d clients during %v.", p.Addr, p.Rate, p.Clients, p.Duration)
 
 
-        globalResult, sync := core.Spawn_workers(p)
+        globalResult, sync := core.SpawnWorkers(cc, p)
         
         sync.WaitReady() // ready.Wait();
         conn.Write([]byte("DONE\n"))
@@ -47,7 +47,7 @@ func handle_client(conn net.Conn) {
         log.Println("Closed connection to master.\n")
 }
 
-func Start_server(){
+func StartServer(cc core.ClientConstructor){
     service := ":9988"
     tcpAddr, error := net.ResolveTCPAddr("tcp", service)
     if error != nil {
@@ -65,7 +65,7 @@ func Start_server(){
                 if error != nil {
                     log.Println("Client error: ", error)
                 } else {
-                    handle_client(conn)                    
+                    handle_client(conn, cc)                    
                 }
             }
         }

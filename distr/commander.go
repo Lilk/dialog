@@ -51,10 +51,10 @@ func serverHandler(serverAddr string, p core.TestParameters, serverReady, server
 
 }
 
-func Start_commander(p core.TestParameters ) result.Result  {
+func StartCommander(p core.TestParameters, cc core.ClientConstructor ) result.Result  {
     servers := []string{"192.168.7.1:9988","192.168.8.1:9988","192.168.9.1:9988", "192.168.10.1:9988"}
     if p.Clients - 4 <= 0 || p.Rate - 1000 <= 0 {
-        res := core.Start_test(p)
+        res := core.StartTest(p, cc)
         result.PrintResult(res, p.Clients)
         return res
     }
@@ -82,7 +82,7 @@ func Start_commander(p core.TestParameters ) result.Result  {
     // wg.Add(localParams.Clients)
     // ready.Add(localParams.Clients)
     // start.Add(1)
-    globalResult, localSync := core.Spawn_workers(localParams)
+    globalResult, localSync := core.SpawnWorkers(cc, localParams)
     
     localSync.WaitReady()// ready.Wait()
     serverReady.Wait()

@@ -26,7 +26,7 @@ var cpuprofile = flag.String("cpuprofile", "", "write cpu profile to file")
 
 
 
-
+var clientType  = core.SimpleChunkedReader
 
 func main() {
     flag.Parse()
@@ -50,7 +50,7 @@ func main() {
     numprocs = runtime.GOMAXPROCS(0)
 
     if  *server {
-        distr.Start_server()
+        distr.StartServer(clientType)
         return
     }
 
@@ -68,10 +68,10 @@ func main() {
 
     var globalResult result.Result
     if *commander {
-        globalResult = distr.Start_commander( parameters)
+        globalResult = distr.StartCommander( parameters, clientType)
 
     } else {
-        globalResult = core.Start_test( parameters)
+        globalResult = core.StartTest( parameters, clientType)
         result.PrintResult(globalResult, *threads)
     }
     

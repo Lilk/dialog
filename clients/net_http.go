@@ -1,7 +1,9 @@
 package clients
 import (
+    "net"
     "net/http"
     "io/ioutil"
+    "time"
 )
 func req_client(client *http.Client, addr string) ( buffer []byte, err error ){
     resp, err := client.Get(addr)
@@ -37,3 +39,35 @@ func req_client(client *http.Client, addr string) ( buffer []byte, err error ){
     // }
     // ioutil.ReadAll(resp.Body)
     // req_client(client, addr)
+    // 
+    // 
+type NetHttp struct {
+   tr *http.Transport
+   client *http.Client
+   // url net.URL
+   addr string
+}
+
+func  ( nh *NetHttp )   Call(addr string) bool {
+     secs := 30
+     nh.tr = &http.Transport{
+     DisableCompression: true,
+     Dial: (&net.Dialer{
+               Timeout:   time.Duration(secs*1000000000),
+               KeepAlive: time.Duration(30*1000000000),
+             }).Dial,
+    }
+    nh.client = &http.Client{Transport: nh.tr}
+    // url, _ = url.Parse(addr)
+    // nh.url = *url
+    nh.addr = addr
+    return true
+
+}
+
+ func  (nh *NetHttp )     Request(buffer []byte) ( text []byte, err error ){
+    return req_client(nh.client, nh.addr)
+ }
+  func  (nh *NetHttp )  Close() {
+    nh.tr.CloseIdleConnections()
+  }

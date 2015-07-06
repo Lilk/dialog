@@ -6,18 +6,13 @@ import (
     "math/rand"
     "time"
     "sync"
-    "net"
+    "fmt"
     "github.com/Lilk/dialog/result"
-    "github.com/Lilk/dialog/clients"
 )
 
 
-// var wg sync.WaitGroup   
-// var ready sync.WaitGroup
-// var start sync.WaitGroup
-// 
-var globalSync Sync
 
+var globalSync Sync
 var mt sync.Mutex
 
 type TestParameters struct {
@@ -29,28 +24,21 @@ type TestParameters struct {
 
 
 func printStarted(){
-    // start.Wait()
     globalSync.start.Wait()
     log.Printf("Load simulation started\n")
 }
 
 
 
-func Start_test( p TestParameters) result.Result {
+func StartTest( p TestParameters, cc ClientConstructor) result.Result {
    
 
-    globalResult, _ := Spawn_workers(p)
+    globalResult, _ := SpawnWorkers(cc, p)
     
     globalSync.WaitReady()
     globalSync.Go()
     globalSync.WaitDone()
 
-    // ready.Wait();
-    // start.Done()
-
-
-
-    // wg.Wait()
     return *globalResult
 }
 
@@ -77,15 +65,26 @@ func checkerr(err error) {
 }
 
 
-func client(addr string, rate float64, duration time.Duration, globalResult *result.Result) {
+func client(cc ClientConstructor, tp TestParameters, globalResult *result.Result) {
+    // var addr string, rate float64, duration time.Duration  = tp.Addr, tp.Rate, tp.Duration
+    addr, rate, duration := tp.Addr, tp.Rate, tp.Duration
+    var err error
+
     localResult := result.NewResult(duration, rate)
+    client := cc()
 
     buffer := make([]byte, 65536, 65536)
-    conn, err := net.DialTimeout("tcp", addr[7:len(addr)-1], time.Duration(300* 1000000000))
-    checkerr(err)
-    
-    _, err = clients.Req_tcp( conn, buffer, true) //*keepAlive
-    checkerr(err)
+    // conn, err := net.DialTimeout("tcp", addr[7:len(addr)-1], time.Duration(300* 1000000000))
+    // checkerr(err)
+    succeeded := client.Call(addr)
+
+    if !succeeded {
+        fmt.Printf("Couldn't dial %s\n", addr)
+        globalSync.signalDone()
+        return
+    }
+
+    // checkerr(err)
 
 
     // log.Printf("Client target rate %v\n", rate)
@@ -113,15 +112,19 @@ func client(addr string, rate float64, duration time.Duration, globalResult *res
         time.Sleep(next_deadline);
 
         t_start := time.Now()
-        if( true  || had_error){ //!*keepAlive
+        if( false  || had_error){ //!*keepAlive
             // log.Println("Opening new connection")
-            conn.Close()
-            conn, err = net.DialTimeout("tcp", addr[7:len(addr)-1], time.Duration(30* 1000000000))
-            checkerr(err)
+            // conn.Close()
+            client.Close()
+            client.Call(addr)
+
+            // conn, err = net.DialTimeout("tcp", addr[7:len(addr)-1], time.Duration(30* 1000000000))
+            // checkerr(err)
             had_error = false
             // reader = bufio.NewReader(conn)
         }
-        _, err = clients.Req_tcp( conn, buffer, true)//*keepAlive
+        _, err = client.Request(buffer)
+        // _, err = clients.Req_tcp( conn, buffer, true)//*keepAlive
         if(err != nil){
             log.Println("Read ERROR:", err)
             localResult.N_errors++
@@ -148,8 +151,9 @@ func client(addr string, rate float64, duration time.Duration, globalResult *res
         // log.Printf("Got response in %v, %v \n%s", t_read.Sub(t_start), t_int.Sub(t_start), body)
     }
 
-    clients.Req_tcp( conn, buffer, false)
-    conn.Close()
+    // clients.Req_tcp( conn, buffer, false)
+    // conn.Close()
+    client.Close()
 
     // fmt.Printf("Loop time: %v\n", loop_time)
     mt.Lock()
@@ -161,7 +165,7 @@ func client(addr string, rate float64, duration time.Duration, globalResult *res
 
 }
 
-func Spawn_workers( p TestParameters ) (*result.Result, *Sync) {
+func SpawnWorkers(cc ClientConstructor, p TestParameters ) (*result.Result, *Sync) {
     
 
     var addr, rate, duration , clients =  p.Addr, p.Rate, p.Duration, p.Clients
@@ -177,7 +181,7 @@ func Spawn_workers( p TestParameters ) (*result.Result, *Sync) {
     go printStarted()
     start_threads := func (n_threads int, rate float64){
         for i:=0; i < n_threads; i++ {
-            go client(addr, rate , duration, &globalResult)
+            go client(cc, p, &globalResult)
         }
         return
     }
