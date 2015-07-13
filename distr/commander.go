@@ -16,6 +16,8 @@ import (
 
 func serverHandler(serverAddr string, p core.TestParameters, serverReady, serverStart *sync.WaitGroup, ret chan result.ResultSummary ){
     conn, err := net.Dial("tcp", serverAddr)
+    defer conn.Close()
+
     if err != nil {
         log.Fatal("Couldn't call server",  err)
     }
@@ -47,7 +49,6 @@ func serverHandler(serverAddr string, p core.TestParameters, serverReady, server
     ret <- summary
 
     
-    conn.Close()
 
 }
 
@@ -82,6 +83,7 @@ func StartCommander(p core.TestParameters, cc core.ClientConstructor ) result.Re
     // wg.Add(localParams.Clients)
     // ready.Add(localParams.Clients)
     // start.Add(1)
+    fmt.Printf("localParams %v\n", localParams)
     globalResult, localSync := core.SpawnWorkers(cc, localParams)
     
     localSync.WaitReady()// ready.Wait()

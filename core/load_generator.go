@@ -104,9 +104,19 @@ func client(cc ClientConstructor, tp TestParameters, globalResult *result.Result
     had_error := false
 
     
-    for( time.Since(start_time) < duration ){
+    for ;; { // time.Since(start_time) < duration 
         if(start_time.Add(duration).Before(t_read.Add(next_deadline))){
+
+            // fmt.Printf("Loop time: %v\n", loop_time)
+            mt.Lock()
+            globalResult.CombineWith(localResult)
+            mt.Unlock()
+            // log.Printf("Got %d responses in %v (%v), Rate: %v\n", localResult.N_latencySamples, time.Since(start_time), localResult.TotLatency, float64(localResult.N_latencySamples)/duration.Seconds())
+            globalSync.signalDone() // wg.Done()
             time.Sleep(start_time.Add(duration).Sub(t_read))
+            
+            client.Close()
+
             break
         }
         time.Sleep(next_deadline);
@@ -153,15 +163,7 @@ func client(cc ClientConstructor, tp TestParameters, globalResult *result.Result
 
     // clients.Req_tcp( conn, buffer, false)
     // conn.Close()
-    client.Close()
-
-    // fmt.Printf("Loop time: %v\n", loop_time)
-    mt.Lock()
-    globalResult.CombineWith(localResult)
-    mt.Unlock()
-    // log.Printf("Got %d responses in %v (%v), Rate: %v\n", responses, time.Since(start_time), req_time, float64(responses)/duration.Seconds())
     
-    globalSync.signalDone() // wg.Done()
 
 }
 
@@ -180,8 +182,9 @@ func SpawnWorkers(cc ClientConstructor, p TestParameters ) (*result.Result, *Syn
     thread_rate := float64(rate) / float64(clients)
     go printStarted()
     start_threads := func (n_threads int, rate float64){
+        clientTP := TestParameters{Duration: duration, Rate: rate, Addr: addr, Clients:1 }
         for i:=0; i < n_threads; i++ {
-            go client(cc, p, &globalResult)
+            go client(cc, clientTP, &globalResult)
         }
         return
     }

@@ -89,7 +89,7 @@ func  ( oc *SimpleChunkedReader )   Call(addr string) bool {
     oc.url = *url 
     oc.buffer = make([]byte, 128, 128)
     oc.KeepaliveConn = true
-    fmt.Printf("Dial  %s, requesting %s\n", oc.url.Host, oc.url.Path)
+    // fmt.Printf("Dial  %s, requesting %s\n", oc.url.Host, oc.url.Path)
 
     oc.request_keepalive = []byte(fmt.Sprintf("GET %s HTTP/1.1\r\n\r\n", oc.url.Path))
     oc.request_close = []byte(fmt.Sprintf("GET %s HTTP/1.1\r\nConnection: close\r\n\r\n", oc.url.Path) )

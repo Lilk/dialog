@@ -26,7 +26,9 @@ var cpuprofile = flag.String("cpuprofile", "", "write cpu profile to file")
 
 
 
-var clientType  = core.SimpleChunkedReader
+// var clientType  = core.SimpleChunkedReader
+var clientType  = core.NetHttp
+
 
 func main() {
     flag.Parse()
