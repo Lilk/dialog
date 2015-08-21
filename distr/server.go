@@ -7,8 +7,15 @@ import (
     "encoding/json"
     "github.com/Lilk/dialog/result"
     "github.com/Lilk/dialog/core"
+    "os"
+    "strings"
+    "time"
 )
 
+func generateHostDateFileName(prefix string) string{
+    hostname, _ := os.Hostname()
+    return prefix + "_" + strings.Split(hostname, ".")[0] + "_"  + time.Now().Format("20060102_150405") + ".gob"
+}
 
 func handle_client(conn net.Conn, cc core.ClientConstructor) {
     reader := bufio.NewReader(conn)
@@ -42,6 +49,11 @@ func handle_client(conn net.Conn, cc core.ClientConstructor) {
         summary := result.ResultSummary{p.Clients, globalResult.AverageThroughput(), globalResult.N_errors}
         enc.Encode(summary)
         result.PrintResult(*globalResult, p.Clients)
+
+        if(p.SaveSamples){
+            result.SaveToFile(globalResult, generateHostDateFileName(p.SampleFile))
+        }
+
         log.Printf("Send result: %v\n", summary)
         conn.Close()
         log.Println("Closed connection to master.\n")

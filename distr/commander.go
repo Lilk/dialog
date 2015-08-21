@@ -11,6 +11,7 @@ import (
     "encoding/json"
     "github.com/Lilk/dialog/result"
     "github.com/Lilk/dialog/core"
+    "math"
 )
 
 
@@ -52,15 +53,23 @@ func serverHandler(serverAddr string, p core.TestParameters, serverReady, server
 
 }
 
-func StartCommander(p core.TestParameters, cc core.ClientConstructor ) result.Result  {
-    servers := []string{"192.168.7.1:9988","192.168.8.1:9988","192.168.9.1:9988", "192.168.10.1:9988"}
+func min(x, y int) int {
+    if x < y {
+        return x
+    }
+    return y
+}
+
+func StartCommander(p core.TestParameters, servers []string, cc core.ClientConstructor ) result.Result  {
+    // servers := []string{"192.168.7.1:9988","192.168.9.1:9988", "192.168.10.1:9988",  "192.168.11.1:9988"}//,"192.168.8.1:9988",
+    // servers = servers[0:4]
     if p.Clients - 4 <= 0 || p.Rate - 1000 <= 0 {
         res := core.StartTest(p, cc)
         result.PrintResult(res, p.Clients)
         return res
     }
     localParams := p
-    localParams.Clients, localParams.Rate = 4, 1000;
+    localParams.Clients, localParams.Rate = min(4, p.Clients), math.Min(float64(1000), p.Rate);
 
     
 
@@ -74,16 +83,19 @@ func StartCommander(p core.TestParameters, cc core.ClientConstructor ) result.Re
     serverStart.Add(1)
 
     returnChannel := make(chan result.ResultSummary)
-    for _, address := range servers{
+    for i, address := range servers{
         time.Sleep(time.Duration(30* 1000000))
         log.Println("spawning", address)
+        if localParams.Clients == 1 && i == len(servers) - 1 && i > 0 {
+            p.Clients = p.Clients + 1
+        }
         go serverHandler(address, p, &serverReady, &serverStart, returnChannel )
     }
 
     // wg.Add(localParams.Clients)
     // ready.Add(localParams.Clients)
     // start.Add(1)
-    fmt.Printf("localParams %v\n", localParams)
+    log.Printf("localParams %v\n", localParams)
     globalResult, localSync := core.SpawnWorkers(cc, localParams)
     
     localSync.WaitReady()// ready.Wait()

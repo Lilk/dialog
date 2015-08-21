@@ -3,13 +3,14 @@ package core
 
 import (
     "github.com/Lilk/dialog/clients"
+    "time"
 )
 
 
 
 type Client interface {
     Call(addr string) bool
-    Request(buffer []byte) ( text []byte, err error )
+    Request(buffer []byte) ( text []byte, ts time.Time, err error )
     Close() 
 }
 

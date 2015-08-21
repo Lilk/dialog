@@ -15,7 +15,7 @@ import (
 // var request_keepalive = []byte("GET / HTTP/1.1\r\n\r\n")
 // var request_close = []byte("GET / HTTP/1.1\r\nConnection: close\r\n\r\n")
 
-func req_tcp(conn net.Conn, buffer []byte, request_str []byte)( text []byte, err error ){
+func req_tcp(conn net.Conn, buffer []byte, request_str []byte) ( text []byte, ts time.Time, err error ){
 
 // fmt.Println("flagvar has value ", *keepAlive)
     reader := bufio.NewReader(conn)
@@ -32,12 +32,17 @@ func req_tcp(conn net.Conn, buffer []byte, request_str []byte)( text []byte, err
     // 
     
     (conn).Write(request_str)
+        ts = time.Now()
 
 
     line, err := reader.ReadSlice('\n') 
-    for len(line) > 2 {
+    // fmt.Printf("///Reading line (%d)(%v): %s", len(line), err, line)
+
+    lines_read := 1
+    for len(line) > 2 || lines_read < 2{
         // fmt.Printf("Reading line (%d)(%v): %s", len(line), err, line)
         line, err = reader.ReadSlice('\n') 
+        lines_read++
         // for err == io.EOF {
         //  reader.Reset(*conn)
         //  reader.ReadSlice('\n')
@@ -50,18 +55,25 @@ func req_tcp(conn net.Conn, buffer []byte, request_str []byte)( text []byte, err
     // fmt.Printf("Reading %d chars.\n", chars)
     for chars > 0 {
         // _, _ := 
-        io.ReadFull(reader, buffer[offset:offset+chars+2])
+         // n, errr := 
+         io.ReadFull(reader, buffer[offset:offset+chars+2])
+         // fmt.Printf("Io Readfull returned: %v %v \n ", n, errr)
         // reader.Read(buffer[offset:offset+chars+2])
-        // fmt.Printf("read chunk (%d):[%s]\n", offset + chars, buffer[:offset+chars])
-        offset += chars + 2
+         // fmt.Printf("read chunk (%d):[%s]\n", offset + chars, buffer[:offset+chars])
+        // fmt.Printf("read chunk (%d):[%s]\n", chars, buffer[offset:offset+chars])
+
+        offset += chars //+ 2
         // fmt.Printf("read chunk (%d):[%s]\n", n, buffer[:n])
         _, err = fmt.Fscanf(reader, "%x\r\n", &chars)
+        // fmt.Printf("Reading %d chars.\n", chars)
+
         if(err != nil) {
             log.Println("Error in scanf from chunk size", err)
-            log.Printf("Read: %s", buffer[:offset])
-            return buffer[:offset], err
+            log.Printf("Read: %s\n", buffer[:offset])
+            // return buffer[:offset], ts, err
+            text = buffer[:offset]
+            return
         }
-        // fmt.Printf("Reading %d chars.\n", chars)
     }
 
     text = buffer[:offset]
@@ -76,6 +88,7 @@ type SimpleChunkedReader struct {
     KeepaliveConn bool
     request_keepalive []byte
     request_close     []byte
+    had_error bool 
 
 
 }
@@ -89,6 +102,7 @@ func  ( oc *SimpleChunkedReader )   Call(addr string) bool {
     oc.url = *url 
     oc.buffer = make([]byte, 128, 128)
     oc.KeepaliveConn = true
+    oc.had_error = false
     // fmt.Printf("Dial  %s, requesting %s\n", oc.url.Host, oc.url.Path)
 
     oc.request_keepalive = []byte(fmt.Sprintf("GET %s HTTP/1.1\r\n\r\n", oc.url.Path))
@@ -107,17 +121,28 @@ func  ( oc *SimpleChunkedReader )   Call(addr string) bool {
 
 }
 
- func  (oc *SimpleChunkedReader )  Request(buffer []byte) ( text []byte, err error ){
+ func  (oc *SimpleChunkedReader )  Request(buffer []byte) ( text []byte, ts time.Time,  err error ){
     if(oc.KeepaliveConn){
-        return req_tcp( oc.conn, buffer, oc.request_keepalive)
+        // fmt.Printf("Requesting keepalive\n")
+        text, ts, err = req_tcp( oc.conn, buffer, oc.request_keepalive)
+        if err != nil {
+            oc.had_error = true
+        }
+        return
     } else {
+        // fmt.Printf("Requesting new conn'n")
+
+        ts = time.Now()
         oc.conn, err = net.DialTimeout("tcp", oc.url.Host, time.Duration(300* 1000000000))
-        return req_tcp( oc.conn, buffer, oc.request_close)
+        text, _, err = req_tcp( oc.conn, buffer, oc.request_close)
+        return
 
      }
  }
   func  (oc *SimpleChunkedReader )  Close() {
-    req_tcp( oc.conn, oc.buffer, oc.request_close)
+    if !oc.had_error {
+        req_tcp( oc.conn, oc.buffer, oc.request_close)
+    } 
     oc.conn.Close()
   }
 

@@ -5,8 +5,9 @@ import (
     "io/ioutil"
     "time"
 )
-func req_client(client *http.Client, addr string) ( buffer []byte, err error ){
+func req_client(client *http.Client, addr string) ( buffer []byte, ts time.Time, err error ){
     resp, err := client.Get(addr)
+    ts = time.Now()
     // checkerr(err)
     buffer, err = ioutil.ReadAll(resp.Body)
     resp.Body.Close()
@@ -65,8 +66,9 @@ func  ( nh *NetHttp )   Call(addr string) bool {
 
 }
 
- func  (nh *NetHttp )     Request(buffer []byte) ( text []byte, err error ){
-    return req_client(nh.client, nh.addr)
+ func  (nh *NetHttp )     Request(buffer []byte) ( text []byte, ts time.Time, err error ){
+    text, ts, err = req_client(nh.client, nh.addr)
+    return
  }
   func  (nh *NetHttp )  Close() {
     nh.tr.CloseIdleConnections()

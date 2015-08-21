@@ -10,11 +10,16 @@ import(
 type Result struct {
     TotLatency time.Duration
     N_latencySamples int
-    LatencySamples []time.Duration
+    LatencySamples []Sample //[]time.Duration
     Duration time.Duration
     N_errors int
 
     sorted bool
+}
+type Sample struct {
+    Latency time.Duration
+    IssueTime time.Time
+    Response string
 }
 
 
@@ -24,12 +29,21 @@ type ResultSummary struct {
     N_errors int
 }
 
-func (res *Result) AddSample(latency time.Duration){
-    res.TotLatency += latency
+// func (res *Result) AddLatencySample(latency time.Duration){
+//     sample := Sample{latency}
+//     res.TotLatency += sample.Latency
+//     res.N_latencySamples++
+//     res.LatencySamples = append(res.LatencySamples, sample)
+//     res.sorted = false
+// }
+
+func (res *Result) AddSample(sample Sample){
+    res.TotLatency += sample.Latency
     res.N_latencySamples++
-    res.LatencySamples = append(res.LatencySamples, latency)
+    res.LatencySamples = append(res.LatencySamples, sample)
     res.sorted = false
 }
+
 func (res *Result) NumberOfSamples() int{
     return res.N_latencySamples
 }
@@ -50,11 +64,16 @@ func (slice durationSlice) Len() int {return len(slice)}
 func (slice durationSlice) Less(i, j int) bool { return slice[i] < slice[j] }
 func (slice durationSlice) Swap(i, j int)  { slice[i], slice[j] = slice[j], slice[i] }
 
+type sampleSlice []Sample
+func (slice sampleSlice) Len() int {return len(slice)}
+func (slice sampleSlice) Less(i, j int) bool { return slice[i].Latency < slice[j].Latency }
+func (slice sampleSlice) Swap(i, j int)  { slice[i], slice[j] = slice[j], slice[i] }
+
 func (res *Result) AverageLatency() time.Duration {
     return time.Duration(res.TotLatency.Nanoseconds()/int64(res.N_latencySamples))
 }
 func (res* Result) Sort() {
-    sort.Sort(durationSlice(res.LatencySamples))
+    sort.Sort(sampleSlice(res.LatencySamples))
     res.sorted = true
 }
 func (res* Result) Percentile(percentile float64) time.Duration {
@@ -62,7 +81,7 @@ func (res* Result) Percentile(percentile float64) time.Duration {
         res.Sort()
     }
     position := int(percentile * float64(res.N_latencySamples))
-    return res.LatencySamples[position]
+    return res.LatencySamples[position].Latency
 }
 
 func NewResult(duration time.Duration, rate float64) (result Result) {
@@ -70,7 +89,7 @@ func NewResult(duration time.Duration, rate float64) (result Result) {
     result.Duration = duration
     result.TotLatency = 0
     result.N_latencySamples = 0
-    result.LatencySamples = make([]time.Duration, 0, 2*expectedSamples)
+    result.LatencySamples = make([]Sample, 0, 2*expectedSamples) //time.Duration
 
     result.N_errors = 0
     return
